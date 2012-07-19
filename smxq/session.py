@@ -5,7 +5,7 @@ import socket
 from haigha.message import Message
 from haigha.connection import Connection
 from pyramid.decorator import reify
-from pyramid_sockjs import STATE_OPEN
+from pyramid_sockjs import STATE_OPEN, Session
 
 import smxq
 from smxq import settings
@@ -32,7 +32,7 @@ def get_connection(registry):
     return conn
 
 
-class SmxqSession(ptah.sockjs.Session):
+class SmxqSession(Session):
 
     smxq_channel = None
 
@@ -57,28 +57,39 @@ class SmxqSession(ptah.sockjs.Session):
 
         self.properties.tick(int(timeout.total_seconds()))
 
-    def _message(self, proto, meth, msg):
+    def setup_protocol_broadcast(self, proto):
         # setup protocol broadcast exchange
+        self.smxq_protocols.add(proto)
+        self.smxq_channel.exchange.declare(
+            settings.S_PROTO_EXCHANGE, 'topic')
+        self.smxq_channel.queue.bind(
+            self.smxq_id, settings.S_PROTO_EXCHANGE, settings.S_PROTO%proto)
+
+        # send open protocol message
+        self.smxq_channel.basic.publish(
+            Message('open', type='sys:%s'%proto, reply_to=self.smxq_id,
+                    application_headers=self.properties),
+            settings.EXCHANGE_ID, settings.ROUTE%proto)
+
+    def message(self, raw_msg):
+        msg = ptah.json.loads(raw_msg)
+        tp = msg.get('type')
+        payload = msg.get('payload')
+        proto = msg.get('protocol')
+
         if proto not in self.smxq_protocols:
-            self.smxq_protocols.add(proto)
-            self.smxq_channel.exchange.declare(
-                settings.S_PROTO_EXCHANGE, 'topic')
-            self.smxq_channel.queue.bind(
-                self.smxq_id, settings.S_PROTO_EXCHANGE, settings.S_PROTO%proto)
+            self.setup_protocol_broadcast(proto)
 
-            # send open protocol
-            self.smxq_channel.basic.publish(
-                Message('open', type='sys:%s'%proto, reply_to=self.smxq_id,
-                        application_headers=self.properties),
-                settings.EXCHANGE_ID, settings.ROUTE%proto)
-
+        # deliver message
         props = self.properties.dict()
 
         self.smxq_channel.basic.publish(
-            Message(msg, type='%s.%s'%(proto, meth),
+            Message(raw_msg, type='%s.%s'%(proto, tp),
                     correlation_id=str(uuid.uuid4()), reply_to=self.smxq_id,
                     application_headers=props),
             settings.EXCHANGE_ID, settings.ROUTE%proto)
+
+        super(SmxqSession, self).message(raw_msg)
 
     def open(self):
         conn = get_connection(self.registry)
