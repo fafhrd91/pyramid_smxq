@@ -100,7 +100,7 @@ class Dispatcher(object):
 
             ac = 'dispatch'
             try:
-                payload = ptah.json.loads(str(msg.body))['payload']
+                payload = ptah.json.loads(str(msg.body))
             except:
                 msg.ack() # error
                 return
@@ -143,10 +143,12 @@ class Context(object):
     def properties(self):
         return SessionProperties(self.client, self.request.registry)
 
-    def protocol(self, proto):
+    def __call__(self, proto):
         if proto == self.proto:
             return self
         return Context(proto, '', {}, self.reply_to, self.msg, self.request)
+
+    protocol = __call__
 
     def send(self, type, payload, reply_to=None):
         msg = {'protocol': self.proto,

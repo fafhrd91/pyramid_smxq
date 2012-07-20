@@ -71,25 +71,19 @@ class SmxqSession(Session):
                     application_headers=self.properties),
             settings.EXCHANGE_ID, settings.ROUTE%proto)
 
-    def message(self, raw_msg):
-        msg = ptah.json.loads(raw_msg)
-        tp = msg.get('type')
-        payload = msg.get('payload')
-        proto = msg.get('protocol')
+    def message(self, msg):
+        proto, tp, payload = msg.split('|', 2)
 
         if proto not in self.smxq_protocols:
             self.setup_protocol_broadcast(proto)
 
         # deliver message
-        props = self.properties.dict()
-
         self.smxq_channel.basic.publish(
-            Message(raw_msg, type='%s.%s'%(proto, tp),
-                    correlation_id=str(uuid.uuid4()), reply_to=self.smxq_id,
-                    application_headers=props),
+            Message(payload, type='%s.%s'%(proto, tp),
+                    correlation_id=str(uuid.uuid4()), reply_to=self.smxq_id),
             settings.EXCHANGE_ID, settings.ROUTE%proto)
 
-        super(SmxqSession, self).message(raw_msg)
+        super(SmxqSession, self).message(msg)
 
     def open(self):
         conn = get_connection(self.registry)
