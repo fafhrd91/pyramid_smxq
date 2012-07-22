@@ -65,27 +65,25 @@ class Method(object):
         self.proto = rpc._protocol
         self.method = method
 
-    def __call__(self, payload, timeout=5.0):
+    def __call__(self, timeout=5.0, **kw):
         id = str(uuid.uuid4())
-        queue = Queue()
-
-        data = {'protocol': self.proto,
-                'type': self.method,
-                'payload':  payload}
 
         self.rpc.channel.basic.publish(
-            Message(ptah.json.dumps(data),
+            Message(ptah.json.dumps(kw),
                     type='%s.%s'%(self.proto, self.method),
                     correlation_id=id, reply_to=self.rpc.smxq_id),
             settings.EXCHANGE_ID, settings.ROUTE%self.proto)
 
-        self.rpc._calls[id] = queue
-        try:
-            msg = queue.get(block=True, timeout=timeout)
-            c_id = msg.properties['correlation_id']
-            if c_id == id:
-                return ptah.json.loads(str(msg.body))['payload']
-        except Empty:
-            pass
+        if timeout:
+            queue = Queue()
 
-        raise RpcError()
+            self.rpc._calls[id] = queue
+            try:
+                msg = queue.get(block=True, timeout=timeout)
+                c_id = msg.properties['correlation_id']
+                if c_id == id:
+                    return ptah.json.loads(str(msg.body))['payload']
+            except Empty:
+                pass
+
+            raise RpcError()

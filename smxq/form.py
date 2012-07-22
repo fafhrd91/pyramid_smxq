@@ -10,12 +10,14 @@ class Form(ptah.form.Form):
     errors = None
 
     def __init__(self, mtype, context, protocol):
-        super(Form, self).__init__(protocol, context.request)
+        super(Form, self).__init__(context, context.request)
 
         self.mtype = mtype
         self.protocol = protocol
+        self.context.protocol = protocol
         self.params = MultiDict(context.payload)
         self.smxq_context = context
+        self.registry = context.registry
 
     def __call__(self):
         self.update()
@@ -28,7 +30,7 @@ class Form(ptah.form.Form):
                     if err.field is not None:
                         errs[err.field.name] = err.msg
 
-                self.smxq_context.send(self.mtype, {'errors': errs})
+                self.context.send(self.mtype, {'errors': errs})
                 return
 
         if '__action__' in self.params:
@@ -41,19 +43,19 @@ class Form(ptah.form.Form):
             else:
                 log.warning("Can't find '%s' message handler", action)
 
-        self.smxq_context.send(self.mtype, self.render())
+        self.context.send(self.mtype, self.render())
 
     def get_msg_data(self):
         return {}
 
     def close(self, msg=None):
         if msg:
-            self.smxq_context.send(
+            self.context.send(
                 self.mtype,
                 {'__close__': True,
                  'message': ptah.render_message(self.request, msg)})
         else:
-            self.smxq_context.send(self.mtype, {'__close__': True})
+            self.context.send(self.mtype, {'__close__': True})
 
     def render(self):
         data = self.get_msg_data()

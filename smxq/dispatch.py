@@ -134,6 +134,7 @@ class Context(object):
         self.payload = payload
         self.props = msg.properties.get('application_headers', {})
         self.request = request
+        self.registry = request.registry
 
         self.reply_to = reply_to
         self.client = reply_to
