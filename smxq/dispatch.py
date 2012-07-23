@@ -13,9 +13,11 @@ from smxq import settings
 from smxq.protocol import ID_PROTOCOL
 from smxq.session import SessionProperties
 
+log = logging.getLogger('smxq')
+
 
 def init_dispatcher(cfg):
-    logging.getLogger('smxq').info("Initialize smxq backend dispatcher")
+    log.info("Initialize smxq backend dispatcher")
     cfg.registry.__smxq_dispatcher__ = Dispatcher(cfg.registry)
     return cfg.registry.__smxq_dispatcher__
 
@@ -66,10 +68,9 @@ class Dispatcher(object):
         if '*' in protocols:
             protocols = self.protocols.keys()
 
-        for i in range(cfg['workers']):
-            self.channels.append(self.create_worker(protocols))
+        self.channels.append(self.create_worker(protocols, cfg))
 
-    def create_worker(self, protocols):
+    def create_worker(self, protocols, cfg):
         ch = self.conn.channel()
         ch.exchange.declare(settings.EXCHANGE_ID, 'topic')
         ch.queue.declare(smxq.QUEUE_ID, auto_delete=False)
@@ -79,6 +80,7 @@ class Dispatcher(object):
                 smxq.QUEUE_ID, smxq.EXCHANGE_ID, 'smxq.protocol.%s'%protocol)
 
         ch.basic.consume(smxq.QUEUE_ID, self._consumer, no_ack=False)
+        ch.basic.qos(prefetch_count = cfg['prefetch-count'])
         return ch
 
     def stop(self):
@@ -87,6 +89,8 @@ class Dispatcher(object):
 
     def _consumer(self, msg):
         tp = msg.properties['type']
+        log.debug('Incoming message "%s", client "%s": %s',
+                  tp, msg.properties['reply_to'], msg.body[:50])
         if tp.startswith('sys:'):
             ac = meth = msg.body
             proto = tp[4:]
@@ -149,8 +153,6 @@ class Context(object):
             return self
         return Context(proto, '', {}, self.reply_to, self.msg, self.request)
 
-    protocol = __call__
-
     def send(self, type, payload, reply_to=None):
         msg = {'protocol': self.proto,
                'type': type,
@@ -159,20 +161,26 @@ class Context(object):
         if reply_to is None:
             reply_to = self.reply_to
 
-        self.channel.basic.publish(
-            Message(ptah.json.dumps(msg), type='%s.%s'%(self.proto, type),
-                    correlation_id=self.msg.properties['correlation_id']),
-            settings.S_EXCHANGE, reply_to)
+        msg = Message(ptah.json.dumps(msg),
+                      type='%s.%s'%(self.proto, type),
+                      correlation_id=self.msg.properties['correlation_id'])
+        self.channel.basic.publish(msg, settings.S_EXCHANGE, reply_to)
+
+        log.debug('Outgoing message "%s.%s", client "%s": %s',
+                  self.proto, type, reply_to, msg.body[:50])
 
     def reply(self, payload):
         msg = {'protocol': self.proto,
                'type': self.type,
                'payload': payload}
 
-        self.channel.basic.publish(
-            Message(ptah.json.dumps(msg), type='%s.%s'%(self.proto, self.type),
-                    correlation_id=self.msg.properties['correlation_id']),
-            settings.S_EXCHANGE, self.reply_to)
+        msg = Message(ptah.json.dumps(msg),
+                      type='%s.%s'%(self.proto, self.type),
+                      correlation_id=self.msg.properties['correlation_id'])
+        self.channel.basic.publish(msg, settings.S_EXCHANGE, self.reply_to)
+
+        log.debug('Outgoing reply "%s.%s", client "%s": %s',
+                  self.proto, self.type, self.reply_to, msg.body[:50])
 
     def broadcast(self, type, payload):
         msg = {'protocol': self.proto,
@@ -181,7 +189,10 @@ class Context(object):
 
         route_key = settings.S_PROTO%self.proto
 
-        self.channel.basic.publish(
-            Message(ptah.json.dumps(msg), type='%s.%s'%(self.proto, type),
-                    correlation_id=self.msg.properties['correlation_id']),
-            settings.S_PROTO_EXCHANGE, route_key)
+        msg = Message(ptah.json.dumps(msg),
+                      type='%s.%s'%(self.proto, type),
+                      correlation_id=self.msg.properties['correlation_id'])
+        self.channel.basic.publish(msg, settings.S_PROTO_EXCHANGE, route_key)
+
+        log.debug('Outgoing broadcast "%s.%s", key "%s": %s',
+                  self.proto, type, route_key, msg.body[:50])

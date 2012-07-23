@@ -35,14 +35,6 @@ def main(init=True):
 
     config.commit()
 
-    # start dispatcher
-    config.registry.__smxq_dispatcher__.start()
-
-    # thread locals
-    threadlocals = {'registry': config.registry,
-                    'request': config.registry.__smxq_dispatcher__.request}
-    threadlocal_manager.push(threadlocals)
-
     # run command
     cmd = BackendCommand(args, config.registry, config)
     cmd.run()
@@ -67,6 +59,14 @@ class BackendCommand(object):
 
         import gevent.monkey
         gevent.monkey.patch_all()
+
+        # start dispatcher
+        self.registry.__smxq_dispatcher__.start()
+
+        # thread locals
+        threadlocals = {'registry': self.registry,
+                        'request': self.registry.__smxq_dispatcher__.request}
+        threadlocal_manager.push(threadlocals)
 
         try:
             while 1:

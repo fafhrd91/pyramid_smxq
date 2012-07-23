@@ -35,9 +35,9 @@ ptah.register_settings(
         default = False),
 
     ptah.form.IntegerField(
-        'workers',
-        title = 'Workers',
-        default = 1),
+        'prefetch-count',
+        title = 'Prefetch count',
+        default = 15),
 
     ptah.form.TextField(
         'protocols',
@@ -48,7 +48,6 @@ ptah.register_settings(
         'url',
         title = 'Application url',
         default = 'http://localhost'),
-
     )
 
 
