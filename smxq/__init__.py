@@ -13,12 +13,17 @@ from .protocol import handler, protocol, Protocol
 def includeme(cfg):
     cfg.include('ptah')
 
+    # dispatcher
     from . import dispatch
     cfg.add_directive('smxq_init_dispatcher', dispatch.init_dispatcher)
 
     disp = cfg.registry.settings.get('smxq.dispatcher', 'false')
     if disp == 'true':
         cfg.smxq_init_dispatcher()
+
+    # protocol directive
+    from .protocol import protocol
+    cfg.add_directive('smxq_protocol', protocol.pyramid)
 
     cfg.scan()
 

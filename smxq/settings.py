@@ -45,6 +45,11 @@ ptah.register_settings(
         default = '*'),
 
     ptah.form.TextField(
+        'skip',
+        title = 'Skip protocols',
+        default = ''),
+
+    ptah.form.TextField(
         'url',
         title = 'Application url',
         default = 'http://localhost'),

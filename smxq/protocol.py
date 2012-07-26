@@ -87,10 +87,11 @@ class handler(object):
 
 class protocol(object):
 
-    def __init__(self, name):
+    def __init__(self, name, __depth=1):
         if '.' in name:
             raise ConfigurationError("Symbol '.' is not allowed: %s"%name)
         self.name = name
+        self.depth = __depth
 
         self.info = ptah.config.DirectiveInfo()
         self.discr = (ID_PROTOCOL, name)
@@ -98,6 +99,10 @@ class protocol(object):
         self.intr = Introspectable(ID_PROTOCOL, self.discr, name, ID_PROTOCOL)
         self.intr['name'] = name
         self.intr['codeinfo'] = self.info.codeinfo
+
+    @classmethod
+    def pyramid(cls, cfg, name, proto):
+        return cls(name, 3)(proto, cfg)
 
     def _register(self, cfg):
         data = cfg.registry.setdefault(ID_PROTOCOL, {})
@@ -112,5 +117,5 @@ class protocol(object):
                 self._register,
                 discriminator=self.discr,
                 introspectables=(intr,), order=999999+1),
-            cfg)
+            cfg, self.depth)
         return handler

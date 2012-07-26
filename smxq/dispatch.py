@@ -64,22 +64,32 @@ class Dispatcher(object):
         self.conn = get_connection(self.registry)
         self.request = Request(self.registry, cfg['url'])
 
-        protocols = [s.strip() for s in cfg['protocols'].split('\n')]
+        protocols = [s.strip() for s in cfg['protocols'].split()]
+        skip = [s.strip() for s in cfg['skip'].split()]
         if '*' in protocols:
             protocols = self.protocols.keys()
 
-        self.channels.append(self.create_worker(protocols, cfg))
+        protocols = [p for p in protocols if p not in skip]
 
-    def create_worker(self, protocols, cfg):
+        self.channels.append(self.init_channel(protocols, cfg))
+
+    def init_channel(self, protocols, cfg):
         ch = self.conn.channel()
-        ch.exchange.declare(settings.EXCHANGE_ID, 'topic')
-        ch.queue.declare(smxq.QUEUE_ID, auto_delete=False)
+        ch.exchange.declare(smxq.EXCHANGE_ID, 'direct')
 
-        for protocol in self.protocols:
-            ch.queue.bind(
-                smxq.QUEUE_ID, smxq.EXCHANGE_ID, 'smxq.protocol.%s'%protocol)
+        for protocol in protocols:
+            if protocol not in self.protocols:
+                log.error("Protocol not found: %s", protocol)
+                continue
 
-        ch.basic.consume(smxq.QUEUE_ID, self._consumer, no_ack=False)
+            log.info("Bind protocol: %s", protocol)
+
+            P_ID = 'smxq.protocol.%s'%protocol
+
+            ch.queue.declare(P_ID, auto_delete=False)
+            ch.queue.bind(P_ID, smxq.EXCHANGE_ID, P_ID)
+            ch.basic.consume(P_ID, self._consumer, no_ack=False)
+
         ch.basic.qos(prefetch_count = cfg['prefetch-count'])
         return ch
 
@@ -168,6 +178,17 @@ class Context(object):
 
         log.debug('Outgoing message "%s.%s", client "%s": %s',
                   self.proto, type, reply_to, msg.body[:50])
+
+    def send_to_protocol(self, type, payload):
+        msg = Message(
+            ptah.json.dumps(payload), type='%s.%s'%(self.proto, type),
+            reply_to=self.reply_to,
+            correlation_id=self.msg.properties['correlation_id'])
+        self.channel.basic.publish(
+            msg, settings.EXCHANGE_ID, settings.ROUTE%self.proto)
+
+        log.debug('Outgoing message to protocol "%s.%s", client "%s": %s',
+                  self.proto, type, self.reply_to, msg.body[:50])
 
     def reply(self, payload):
         msg = {'protocol': self.proto,

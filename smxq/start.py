@@ -55,8 +55,6 @@ class BackendCommand(object):
         self.settings = ptah.get_settings('smxq', registry)
 
     def run(self):
-        print 'Smxq dispatcher is initialized... workers are started...'
-
         import gevent.monkey
         gevent.monkey.patch_all()
 
@@ -67,6 +65,8 @@ class BackendCommand(object):
         threadlocals = {'registry': self.registry,
                         'request': self.registry.__smxq_dispatcher__.request}
         threadlocal_manager.push(threadlocals)
+
+        print 'Smxq dispatcher is initialized... workers are started...'
 
         try:
             while 1:
