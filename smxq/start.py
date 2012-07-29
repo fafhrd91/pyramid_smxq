@@ -10,6 +10,9 @@ from pyramid.threadlocal import manager as threadlocal_manager
 
 
 def main(init=True):
+    import gevent.monkey
+    gevent.monkey.patch_all()
+
     args = BackendCommand.parser.parse_args()
 
     # logging config
@@ -55,9 +58,6 @@ class BackendCommand(object):
         self.settings = ptah.get_settings('smxq', registry)
 
     def run(self):
-        import gevent.monkey
-        gevent.monkey.patch_all()
-
         # start dispatcher
         self.registry.__smxq_dispatcher__.start()
 

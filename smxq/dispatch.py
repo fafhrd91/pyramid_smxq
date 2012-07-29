@@ -164,14 +164,10 @@ class Context(object):
         return Context(proto, '', {}, self.reply_to, self.msg, self.request)
 
     def send(self, type, payload, reply_to=None):
-        msg = {'protocol': self.proto,
-               'type': type,
-               'payload': payload}
-
         if reply_to is None:
             reply_to = self.reply_to
 
-        msg = Message(ptah.json.dumps(msg),
+        msg = Message(ptah.json.dumps(payload),
                       type='%s.%s'%(self.proto, type),
                       correlation_id=self.msg.properties['correlation_id'])
         self.channel.basic.publish(msg, settings.S_EXCHANGE, reply_to)
@@ -191,11 +187,7 @@ class Context(object):
                   self.proto, type, self.reply_to, msg.body[:50])
 
     def reply(self, payload):
-        msg = {'protocol': self.proto,
-               'type': self.type,
-               'payload': payload}
-
-        msg = Message(ptah.json.dumps(msg),
+        msg = Message(ptah.json.dumps(payload),
                       type='%s.%s'%(self.proto, self.type),
                       correlation_id=self.msg.properties['correlation_id'])
         self.channel.basic.publish(msg, settings.S_EXCHANGE, self.reply_to)
@@ -204,13 +196,9 @@ class Context(object):
                   self.proto, self.type, self.reply_to, msg.body[:50])
 
     def broadcast(self, type, payload):
-        msg = {'protocol': self.proto,
-               'type': type,
-               'payload': payload}
-
         route_key = settings.S_PROTO%self.proto
 
-        msg = Message(ptah.json.dumps(msg),
+        msg = Message(ptah.json.dumps(payload),
                       type='%s.%s'%(self.proto, type),
                       correlation_id=self.msg.properties['correlation_id'])
         self.channel.basic.publish(msg, settings.S_PROTO_EXCHANGE, route_key)

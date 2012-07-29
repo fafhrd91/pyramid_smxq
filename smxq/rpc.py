@@ -82,7 +82,7 @@ class Method(object):
                 msg = queue.get(block=True, timeout=timeout)
                 c_id = msg.properties['correlation_id']
                 if c_id == id:
-                    return ptah.json.loads(str(msg.body))['payload']
+                    return ptah.json.loads(str(msg.body))
             except Empty:
                 pass
 

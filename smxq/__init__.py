@@ -1,8 +1,11 @@
 import logging
 
 from .rpc import rpc, RpcError
-from .settings import CFG_ID_SMXQ, CFG_ID_REDIS, QUEUE_ID, EXCHANGE_ID
+from .settings import CFG_ID_SMXQ, CFG_ID_REDIS
+from .settings import QUEUE_ID, EXCHANGE_ID
+from .settings import S_PROTO, S_PROTO_EXCHANGE
 
+from .message import SmxqMessage
 from .session import SmxqSession
 from .session import SessionProperties
 
