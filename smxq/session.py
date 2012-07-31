@@ -61,7 +61,7 @@ class SmxqSession(Session):
         # setup protocol broadcast exchange
         self.smxq_protocols.add(proto)
         self.smxq_channel.exchange.declare(
-            settings.S_PROTO_EXCHANGE, 'topic')
+            settings.S_PROTO_EXCHANGE, 'direct')
         self.smxq_channel.queue.bind(
             self.smxq_id, settings.S_PROTO_EXCHANGE, settings.S_PROTO%proto)
 
@@ -98,7 +98,13 @@ class SmxqSession(Session):
         # consumer
         def consumer(msg):
             def _worker():
-                self.queue.put_nowait(ptah.json.loads(str(msg.body)))
+                payload = ptah.json.loads(str(msg.body))
+                if 'protocol' not in payload:
+                    proto, tp = msg.properties['type'].split('.', 1)
+                    payload = {'protocol': proto,
+                               'type': tp,
+                               'payload': payload}
+                self.queue.put_nowait(payload)
                 msg.ack()
 
             gevent.spawn(_worker)
