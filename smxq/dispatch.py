@@ -88,7 +88,11 @@ class Dispatcher(object):
 
             ch.queue.declare(P_ID, auto_delete=False)
             ch.queue.bind(P_ID, smxq.EXCHANGE_ID, P_ID)
-            ch.basic.consume(P_ID, self._consumer, no_ack=False)
+
+            def consumer(msg):
+                gevent.spawn(self.dispatch, msg)
+
+            ch.basic.consume(P_ID, consumer, no_ack=False)
 
         ch.basic.qos(prefetch_count = cfg['prefetch-count'])
         return ch
@@ -97,7 +101,7 @@ class Dispatcher(object):
         for ch in self.channels:
             ch.stop()
 
-    def _consumer(self, msg):
+    def dispatch(self, msg):
         tp = msg.properties['type']
         log.debug('Incoming message "%s", client "%s": %s',
                   tp, msg.properties['reply_to'], msg.body[:50])

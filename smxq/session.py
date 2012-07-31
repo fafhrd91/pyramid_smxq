@@ -97,8 +97,11 @@ class SmxqSession(Session):
 
         # consumer
         def consumer(msg):
-            self.queue.put_nowait(ptah.json.loads(str(msg.body)))
-            msg.ack()
+            def _worker():
+                self.queue.put_nowait(ptah.json.loads(str(msg.body)))
+                msg.ack()
+
+            gevent.spawn(_worker)
 
         self.smxq_channel.basic.consume(self.smxq_id, consumer, no_ack=False)
 
