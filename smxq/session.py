@@ -21,11 +21,16 @@ def get_connection(registry):
     registry.__smxq_session__ = conn = Connection(
         host=cfg['host'], vhost=cfg['vhost'], transport="gevent",
         sock_opts={(socket.IPPROTO_TCP, socket.TCP_NODELAY) : 1})
+    gevent.sleep(0.5)
 
     def read():
         while 1:
+            while conn._connected:
+                conn.read_frames()
+                gevent.sleep(0)
+
+            gevent.sleep(1)
             conn.read_frames()
-            gevent.sleep(0)
 
     registry.__smxq_process__ = gevent.spawn(read)
 

@@ -35,8 +35,12 @@ def get_connection(registry):
 
     def read():
         while 1:
+            while conn._connected:
+                conn.read_frames()
+                gevent.sleep(0)
+
+            gevent.sleep(1)
             conn.read_frames()
-            gevent.sleep(0)
 
     registry.__smxq_dispatcher_process__ = gevent.spawn(read)
 
@@ -71,7 +75,7 @@ class Dispatcher(object):
 
         protocols = [p for p in protocols if p not in skip]
 
-        self.channels.append(self.init_channel(protocols, cfg))
+        self.channels.append(self.init_channel(sorted(protocols), cfg))
 
     def init_channel(self, protocols, cfg):
         ch = self.conn.channel()
