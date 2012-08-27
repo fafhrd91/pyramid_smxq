@@ -28,6 +28,10 @@ def includeme(cfg):
     from .protocol import protocol
     cfg.add_directive('smxq_protocol', protocol.pyramid)
 
+    # sockjs connection
+    from .session import register_smxq
+    cfg.add_directive('smxq_init_sockjs', register_smxq)
+
     cfg.scan()
 
 

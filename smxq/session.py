@@ -5,7 +5,7 @@ import socket
 from haigha.message import Message
 from haigha.connection import Connection
 from pyramid.decorator import reify
-from pyramid_sockjs import STATE_OPEN, Session
+from pyramid_sockjs import STATE_OPEN, Session, SessionManager
 
 import smxq
 from smxq import settings
@@ -163,3 +163,9 @@ class SessionProperties(object):
 
     def iteritems(self):
         return self.redis.hgetall(self.smxq_id).iteritems()
+
+
+def register_smxq(cfg, session=SmxqSession, **kw):
+    # sockjs connection
+    kw['session_manager'] = SessionManager('smxq', cfg.registry, session)
+    cfg.add_sockjs_route('smxq', '/_ptah_connection', **kw)
